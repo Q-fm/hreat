@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>烟花爱心 - 吴桐</title>
+    <style>
+        * { margin: 0; padding: 0; }
+        body { background: #000; overflow: hidden; }
+        canvas { display: block; }
+        .text-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'STXingkai', 'STXingKai', '华文行楷', serif;
+            font-size: 80px;
+            font-weight: bold;
+            color: #FF6B6B;
+            opacity: 0;
+            text-shadow: 0 0 20px #FF6B6B, 0 0 40px #FF4757;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="fireworks"></canvas>
+    <div class="text-overlay" id="displayText">吴桐</div>
+    
+    <script>
+        const canvas = document.getElementById('fireworks');
+        const ctx = canvas.getContext('2d');
+        const displayText = document.getElementById('displayText');
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        const particles = [];
+        const loveParticles = [];
+        let stage = 0;
+        let showText = false;
+        let textAlpha = 0;
+        
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        
+        const colors = ['#FF6B6B', '#FF8E8E', '#FFB3B3', '#FF4757', '#FF1493', '#FF6348', '#FF7F50', '#FFA07A'];
+        
+        function random(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+        
+        function Heart(x, y, size, color, vx, vy, life) {
+            this.x = x;
+            this.y = y;
+            this.size = size;
+            this.color = color;
+            this.vx = vx;
+            this.vy = vy;
+            this.life = life;
+            this.maxLife = life;
+        }
+        
+        Heart.prototype.update = function() {
+            this.x += this.vx;
+            this.y += this.vy;
+            this.vy += 0.03;
+            this.life--;
+            this.size = (this.life / this.maxLife) * this.size;
+        };
+        
+        Heart.prototype.draw = function(ctx) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.scale(this.size / 15, this.size / 15);
+            ctx.fillStyle = this.color;
+            ctx.globalAlpha = this.life / this.maxLife;
+            
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(10, -10, 20, 0, 0, 15);
+            ctx.bezierCurveTo(-20, 0, -10, -10, 0, 0);
+            ctx.fill();
+            
+            ctx.restore();
+        };
+        
+        function Particle(x, y, color, vx, vy, life, size) {
+            this.x = x;
+            this.y = y;
+            this.color = color;
+            this.vx = vx;
+            this.vy = vy;
+            this.life = life;
+            this.size = size;
+        }
+        
+        Particle.prototype.update = function() {
+            this.x += this.vx;
+            this.y += this.vy;
+            this.vy += 0.05;
+            this.life--;
+        };
+        
+        Particle.prototype.draw = function(ctx) {
+            ctx.save();
+            ctx.globalAlpha = this.life / 100;
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        };
+        
+        function heartShapePoints() {
+            const points = [];
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            for (let t = 0; t < 360; t += 3) {
+                const angle = (t * Math.PI) / 180;
+                const x = 120 * Math.pow(Math.sin(angle), 3);
+                const y = 100 * Math.cos(angle) - 40 * Math.cos(2 * angle) - 15 * Math.cos(3 * angle) - 8 * Math.cos(4 * angle);
+                points.push({ x: centerX + x, y: centerY + y * 0.8 });
+            }
+            return points;
+        }
+        
+        function createFirework(x, y) {
+            for (let i = 0; i < 30; i++) {
+                const angle = random(0, Math.PI * 2);
+                const speed = random(2, 5);
+                particles.push(new Particle(
+                    x, y,
+                    colors[Math.floor(random(0, colors.length))],
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    60,
+                    random(2, 4)
+                ));
+            }
+        }
+        
+        function createLoveFirework(x, y) {
+            for (let i = 0; i < 40; i++) {
+                const angle = random(0, Math.PI * 2);
+                const speed = random(1.5, 3.5);
+                loveParticles.push(new Heart(
+                    x, y,
+                    random(10, 20),
+                    colors[Math.floor(random(0, 5))],
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    60
+                ));
+            }
+        }
+        
+        function drawBackground() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        let lastTime = Date.now();
+        let fireworkInterval = null;
+        
+        function animate() {
+            drawBackground();
+            
+            if (stage === 0) {
+                const heartPoints = heartShapePoints();
+                heartPoints.forEach(point => {
+                    if (Math.random() > 0.7) {
+                        createFirework(point.x, point.y);
+                    }
+                });
+                stage = 1;
+                
+                fireworkInterval = setInterval(() => {
+                    const heartPoints = heartShapePoints();
+                    const randomPoint = heartPoints[Math.floor(random(0, heartPoints.length))];
+                    createFirework(randomPoint.x, randomPoint.y);
+                }, 200);
+                
+                setTimeout(() => {
+                    clearInterval(fireworkInterval);
+                    stage = 1.5;
+                }, 2000);
+            }
+            
+            if (stage === 1.5 && particles.length < 50) {
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                createLoveFirework(centerX, centerY);
+                stage = 2;
+            }
+            
+            if (stage === 2 && loveParticles.length === 0 && particles.length === 0 && !showText) {
+                showText = true;
+                displayText.style.left = '50%';
+                displayText.style.top = '50%';
+            }
+            
+            if (showText) {
+                textAlpha = Math.min(textAlpha + 0.02, 1);
+                displayText.style.opacity = textAlpha;
+                
+                if (textAlpha >= 1 && Math.random() > 0.7) {
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    loveParticles.push(new Heart(
+                        centerX + random(-150, 150),
+                        centerY + random(-100, 100),
+                        random(8, 15),
+                        colors[Math.floor(random(0, 5))],
+                        random(-1, 1),
+                        random(-2, 0),
+                        40
+                    ));
+                }
+            }
+            
+            particles.forEach((p, i) => {
+                p.update();
+                p.draw(ctx);
+                if (p.life <= 0) particles.splice(i, 1);
+            });
+            
+            loveParticles.forEach((h, i) => {
+                h.update();
+                h.draw(ctx);
+                if (h.life <= 0) loveParticles.splice(i, 1);
+            });
+            
+            requestAnimationFrame(animate);
+        }
+        
+        animate();
+    </script>
+</body>
+</html>
